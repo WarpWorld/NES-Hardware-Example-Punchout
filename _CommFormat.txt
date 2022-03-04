@@ -1,0 +1,152 @@
+Actions
+0 - Read
+1 - Array Read
+2 - Write
+3 - Array Write
+4 - Freeze
+5 - Palram Read (not yet implemented)
+6 - Palram Write (not yet implemented)
+
+FF - Null Message (Used as a connection test heartbeat)
+FE - Version, confirms patch version and some supported features
+
+Outgoing Header includes first byte of $20 to distinguish from other messages
+
+Standard header, included in all messages in and out 2 bytes MM AA
+	MM - Msg ID, used to match up responses to sources if needed
+		(mostly in case whatever is talking to N8 is multithreaded)
+	AA - Action number
+
+
+
+
+Read:
+	NN A1A1 A2A2...
+
+	NN - Number of addresses to read
+	AXAX- repeated for each address, address to read
+
+	Returns: V1 V2 ...
+	All values read in order
+
+Example:
+MSG ACT NUM ADDR1 ADDR2 ADDR3
+23  00  03  12 00 6F 06 6D 06
+
+Return:
+HEADER   VALS
+20 23 00 05 23 11 
+
+
+
+Array Read:
+	NN AAAA
+
+	NN - Number of addresses to read
+	AAAA - Start address of read
+
+	Returns: V1 V2...
+	All values read in order
+
+Example:
+MSG ACT NUM ADDR
+23  01  04  20 06
+
+Return:
+HEADER   VALS
+20 23 01 05 77 67 78
+
+
+
+Write:
+	NN A1A1 V1 A2A2 V2...
+
+	NN - Number of addresses to write
+	AXAX VX - repeated for each address, address to write and value for that address
+
+	Returns: empty message
+
+Example:
+MSG ACT NUM ADDR1 VAL1 ADDR2 VAL2
+23  02  02  6F 06 21   6D 06 11
+
+Return:
+HEADER  
+20 23 02
+
+
+
+Array Write:
+	NN AAAA V1 V2...
+
+	NN - Number of values to write
+	AAAA - Start address of write
+	VX - repeated for each value to write
+
+	Returns: empty message
+
+Example:
+MSG ACT NUM ADDR  VALS
+23  03  06  80 06 10 18 20 28 30 38
+
+Return:
+HEADER  
+20 23 03
+
+
+
+Freeze:
+	SS CS AAAA VV MM WW CCCC CV CT
+
+	SS/CS - size in bytes of target value and compare value
+		Included for completion / compatibility but expected to always be 1 on NES
+
+	AAAA - target address to execute the freeze on
+
+	VV - value to use for the freeze write
+
+	MM - bit mask to use if set to a masked mode
+
+	WW - write mode
+		0 - do nothing
+		1 - write value to address
+		2 - increment address by value
+		3 - decrement address by value
+		4 - write value masked by bit mask to address
+
+	CCCC - compare address, used to perform conditional freezing / writing
+
+	CV - compare value, used in conditional testing
+
+	CT - compare type, tests the value at compare address against compare value before doing writes
+		00 - Never - Erases matching freeze entry and acts as unfreeze
+		01 - Equal - only runs if compare address equals compare value
+		02 - Not Equal - only runs if compare address doesn't equal compare value
+		03 - Always - normal freeze with no comparison test
+		04 - Greater Than - only runs if compare address greater than compare value
+		05 - Greater Than or Equal - only runs if compare address greater than or equal to compare value
+		08 - Less Than - only runs if compare address less than compare value
+		09 - Less Than or Equal - only runs if compare address less than or equal to compare value
+
+	Returns: SS
+		Success - 00 means there wasn't an empty freeze entry and should retry
+			  01 means success
+
+	
+Version:
+	Empty message
+
+	Returns: VVVV MR MW MF
+
+	VVVV - protocol version
+	MR - maximum bytes in an array read		
+	MW - maximum bytes in an array write
+	MF - maximum freeze slots
+
+Null Msg:
+MSG ACT
+23  FF
+
+Return:
+HEADER  
+20 23 FF
